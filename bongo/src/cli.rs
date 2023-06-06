@@ -17,7 +17,7 @@ pub enum Command {
         #[arg(short, long)]
         editor: Option<String>,
         ///path the to song
-        song: PathBuf,
+        song: Vec<PathBuf>,
     },
     #[cfg(feature = "fetch")]
     Fetch,
