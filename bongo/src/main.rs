@@ -51,9 +51,24 @@ fn edit(path: PathBuf, editor: &str) -> anyhow::Result<()> {
     let temp = tempfile::NamedTempFile::new()?.into_temp_path();
 
     std::fs::write(&temp, toml::to_string_pretty(&fileinfo)?)?;
-    std::process::Command::new(editor).arg(&temp).status()?;
-
-    fileinfo = toml::from_str(&std::fs::read_to_string(temp)?)?;
+    {
+        let mut edit = true;
+        while edit {
+            std::process::Command::new(editor).arg(&temp).status()?;
+            edit = match toml::from_str::<FileInfo>(&std::fs::read_to_string(&temp)?) {
+                Err(err) => {
+                    println!("{err}");
+                    dialoguer::Confirm::new()
+                        .with_prompt("edit again?")
+                        .interact()?
+                }
+                core::result::Result::Ok(val) => {
+                    fileinfo = val;
+                    false
+                }
+            }
+        }
+    }
     let tags = file.tag_mut(file.primary_tag_type()).unwrap();
     fileinfo.update(tags);
     tags.save_to_path(path)?;

@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.71"
 clap = { version = "4.3.2", features = ["derive", "cargo"] }
+dialoguer = "0.10.4"
 lofty = "0.13.0"
 serde = { version = "1.0.163", features = ["derive"] }
 tempfile = { version = "3.5.0", optional = true }
