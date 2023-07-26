@@ -8,6 +8,8 @@ pub struct Cli {
     #[arg(short, long)]
     ///disable browser auth for spotify
     pub no_browser: bool,
+    ///music directory [default: ./ ]
+    pub directory: Option<PathBuf>,
     #[command(subcommand)]
     pub command: Command,
 }
@@ -18,21 +20,36 @@ pub enum Command {
         #[arg(short, long)]
         ///copy music files to dir rather than move files
         destination_directory: Option<PathBuf>,
-        #[arg(short, long)]
-        ///music dir [default:current-dir]
-        source_directory: Option<PathBuf>,
     },
     ///update metadata for files
     Update {
         #[arg(short, long)]
-        ///music dir [default:current-dir]
-        directory: Option<PathBuf>,
+        ///metadata source
         backend: Backend,
     },
+    ///create a bongo.db in the music dir
+    Init {
+        ///create even if a bongo.db already exists
+        #[arg(short, long)]
+        force_reinit: bool,
+    },
+
+    ///dump the contents of the database
+    DumpDb,
+
     ///list tagged files in a directory
     List {
+        #[arg(short, long)]
         ///music dir [default:current-dir]
-        directory: Option<PathBuf>,
+        sub_directory: Option<PathBuf>,
+    },
+    ///edit the metadata of a song
+    Edit {
+        ///path to the song to edit
+        song: PathBuf,
+        ///override the editor
+        #[arg(short, long)]
+        editor: Option<String>,
     },
 }
 

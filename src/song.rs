@@ -1,12 +1,13 @@
-use std::path::{Path, PathBuf};
-
+use crate::db::{DbEntry, RelativePath, SongUuid, SONGTABLE};
 use anyhow::Result;
 use lofty::{Tag, TaggedFile, TaggedFileExt};
+use redb::{ReadableTable, TableDefinition};
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 pub struct Song {
     tagged: TaggedFile,
-    uuid: uuid::Uuid,
+    uuid: SongUuid,
     path: PathBuf,
 }
 
@@ -17,20 +18,44 @@ impl Song {
         let tags = tagged.get_tag_mut(&path)?;
         let uuid_field = tags.get_string(&lofty::ItemKey::CatalogNumber);
         let uuid = if let Some(uuid) = uuid_field {
-            uuid::Uuid::parse_str(uuid).map_err(|e| OpenError::from(e).at(path.to_path_buf()))?
+            match uuid::Uuid::parse_str(uuid).map_err(|e| OpenError::from(e).at(path.to_path_buf()))
+            {
+                Ok(uuid) => Ok(uuid),
+                Err(e) => {
+                    if !write_uuid {
+                        Err(e)
+                    } else {
+                        try_write_uuid(&path, tags, write_uuid)
+                    }
+                }
+            }
         } else {
+            try_write_uuid(&path, tags, write_uuid)
+        }?;
+        fn try_write_uuid(path: &Path, tags: &mut Tag, write_uuid: bool) -> Result<Uuid, Error> {
             if !write_uuid {
                 return Err(OpenError::MissingUuid.at(path.to_path_buf()));
             }
             let uuid = Uuid::new_v4();
+            tracing::trace!("assigning uuid '{}', to '{}'", uuid, path.to_string_lossy());
             if tags.insert_text(lofty::ItemKey::CatalogNumber, uuid.to_string()) {
-                uuid
+                Ok(uuid)
             } else {
                 return Err(OpenError::Write.at(path.to_path_buf()));
             }
-        };
+        }
 
-        Ok(Self { tagged, uuid, path })
+        Ok(Self {
+            tagged,
+            uuid: SongUuid::from(uuid),
+            path,
+        })
+    }
+    fn to_db_entry(&self, root: &Path) -> anyhow::Result<DbEntry> {
+        let relative_path = RelativePath::new(&self.path, root)?;
+        Ok(DbEntry {
+            old_path: relative_path,
+        })
     }
 }
 
@@ -62,17 +87,47 @@ pub struct Error {
 
 pub struct MusicDir {
     songs: Vec<Song>,
+    playlists: Vec<PathBuf>,
     root: PathBuf,
     db: redb::Database,
 }
 
 impl MusicDir {
-    pub fn init(root: PathBuf) -> Result<Self> {
+    pub fn init(root: PathBuf, force: bool) -> Result<Self> {
         let db = redb::Database::create(root.join(".bongo.db"))?;
         let songs = Self::find_songs(&root, true)?;
-        Ok(Self { songs, root, db })
+        let playlists = Self::find_playlists(&root)?;
+        let writer = db.begin_write()?;
+        {
+            if force {
+                writer.delete_table(SONGTABLE)?;
+            }
+            let mut song_tbl = writer.open_table(SONGTABLE)?;
+            for song in &songs {
+                if song_tbl.get(&song.uuid)?.is_none() {
+                    song_tbl.insert(&song.uuid, song.to_db_entry(&root)?)?;
+                }
+            }
+        }
+        writer.commit()?;
+
+        Ok(Self {
+            songs,
+            playlists,
+            root,
+            db,
+        })
     }
-    fn song_table(&self) {}
+    pub fn dumpdb(root: PathBuf) -> Result<()> {
+        let db = redb::Database::open(root.join(".bongo.db"))?;
+        let reader = db.begin_read()?;
+        let tbl = reader.open_table(SONGTABLE)?;
+        for entry in tbl.iter()? {
+            let entry = entry?.1.value();
+            println!("{entry:?}");
+        }
+        Ok(())
+    }
     fn find_songs(root: &Path, write_uuid: bool) -> Result<Vec<Song>> {
         Ok(walkdir::WalkDir::new(root)
             .max_depth(5)
@@ -84,6 +139,20 @@ impl MusicDir {
             .filter(|e| is_music_file(e.path()))
             .map(|d| Song::parse(d.into_path(), write_uuid).map_err(Into::into))
             .collect::<Result<Vec<_>>>()?)
+    }
+    fn find_playlists(root: &Path) -> Result<Vec<PathBuf>> {
+        let paths = root.read_dir()?;
+        paths
+            .into_iter()
+            .map(|entry| entry.map(|f| f.path()).map_err(|e| e.into()))
+            .filter(|e| {
+                if let Ok(dir) = e {
+                    dir.extension().unwrap_or_default().to_string_lossy() == ".m3u"
+                } else {
+                    true
+                }
+            })
+            .collect()
     }
 }
 
