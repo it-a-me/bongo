@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use redb::{TableDefinition, TypeName};
 
-use crate::song::Song;
+
 pub const SONGTABLE: TableDefinition<SongUuid, DbEntry> = TableDefinition::new("song_table");
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct RelativePath(pub Vec<String>);
@@ -15,14 +15,14 @@ impl RelativePath {
             root.to_string_lossy()
         );
         let mut path = path
-            .into_iter()
+            .iter()
             .map(|s| {
                 s.to_str()
                     .map(ToString::to_string)
                     .ok_or(anyhow::anyhow!("invalid utf8 path"))
             })
             .collect::<Result<Vec<_>>>()?;
-        for dir in root.into_iter().map(|os| {
+        for dir in root.iter().map(|os| {
             os.to_str()
                 .map(ToString::to_string)
                 .ok_or(anyhow::anyhow!("invalid utf8 path"))
@@ -43,7 +43,7 @@ impl RelativePath {
 }
 impl std::fmt::Display for RelativePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut paths = String::from(self.0.get(0).map(ToOwned::to_owned).unwrap_or_default());
+        let mut paths = self.0.get(0).map(ToOwned::to_owned).unwrap_or_default();
         for path in self.0.iter().skip(1) {
             paths.push('/');
             paths.push_str(path);

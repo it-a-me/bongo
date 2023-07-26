@@ -20,7 +20,7 @@ pub fn edit(path: PathBuf, editor: Option<String>) -> Result<()> {
     std::fs::write(&tmp, toml)?;
     let editor = editor.unwrap_or(std::env::var("EDITOR").unwrap_or(String::from("vim")));
     let mut result: HashMap<String, String> = edit_toml(&tmp, &editor)?;
-    for (key, value) in map.into_iter() {
+    for (key, value) in map {
         if let Some(val) = result.get(&key) {
             if val == &value {
                 result.remove(&key);

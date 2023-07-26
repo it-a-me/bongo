@@ -36,10 +36,10 @@ fn main() -> anyhow::Result<()> {
     };
     match args.command {
         cli::Command::Sort {
-            destination_directory,
+            destination_directory: _,
         } => todo!(),
-        cli::Command::Update { backend } => todo!(),
-        cli::Command::List { sub_directory } => todo!(),
+        cli::Command::Update { backend: _ } => todo!(),
+        cli::Command::List { sub_directory: _ } => todo!(),
         cli::Command::Init { force_reinit } => {
             song::MusicDir::init(music_dir, force_reinit)?;
         }

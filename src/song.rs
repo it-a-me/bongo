@@ -1,7 +1,7 @@
 use crate::db::{DbEntry, RelativePath, SongUuid, SONGTABLE};
 use anyhow::Result;
 use lofty::{Tag, TaggedFile, TaggedFileExt};
-use redb::{ReadableTable, TableDefinition};
+use redb::{ReadableTable};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
@@ -14,11 +14,11 @@ pub struct Song {
 impl Song {
     pub fn parse(path: PathBuf, write_uuid: bool) -> Result<Self, Error> {
         let mut tagged =
-            lofty::read_from_path(&path).map_err(|e| OpenError::from(e).at(path.to_path_buf()))?;
+            lofty::read_from_path(&path).map_err(|e| OpenError::from(e).at(path.clone()))?;
         let tags = tagged.get_tag_mut(&path)?;
         let uuid_field = tags.get_string(&lofty::ItemKey::CatalogNumber);
         let uuid = if let Some(uuid) = uuid_field {
-            match uuid::Uuid::parse_str(uuid).map_err(|e| OpenError::from(e).at(path.to_path_buf()))
+            match uuid::Uuid::parse_str(uuid).map_err(|e| OpenError::from(e).at(path.clone()))
             {
                 Ok(uuid) => Ok(uuid),
                 Err(e) => {
@@ -41,7 +41,7 @@ impl Song {
             if tags.insert_text(lofty::ItemKey::CatalogNumber, uuid.to_string()) {
                 Ok(uuid)
             } else {
-                return Err(OpenError::Write.at(path.to_path_buf()));
+                Err(OpenError::Write.at(path.to_path_buf()))
             }
         }
 
@@ -129,22 +129,22 @@ impl MusicDir {
         Ok(())
     }
     fn find_songs(root: &Path, write_uuid: bool) -> Result<Vec<Song>> {
-        Ok(walkdir::WalkDir::new(root)
+        walkdir::WalkDir::new(root)
             .max_depth(5)
             .follow_links(false)
             .into_iter()
-            .filter_entry(|e| e.file_name().to_string_lossy().chars().nth(0) != Some('.'))
+            .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.'))
             .collect::<Result<Vec<_>, walkdir::Error>>()?
             .into_iter()
             .filter(|e| is_music_file(e.path()))
             .map(|d| Song::parse(d.into_path(), write_uuid).map_err(Into::into))
-            .collect::<Result<Vec<_>>>()?)
+            .collect::<Result<Vec<_>>>()
     }
     fn find_playlists(root: &Path) -> Result<Vec<PathBuf>> {
         let paths = root.read_dir()?;
         paths
             .into_iter()
-            .map(|entry| entry.map(|f| f.path()).map_err(|e| e.into()))
+            .map(|entry| entry.map(|f| f.path()).map_err(std::convert::Into::into))
             .filter(|e| {
                 if let Ok(dir) = e {
                     dir.extension().unwrap_or_default().to_string_lossy() == ".m3u"
@@ -175,7 +175,7 @@ fn is_music_file(path: &Path) -> bool {
     if !path.is_file() {
         return false;
     }
-    let Some(Some(ext)) = path.extension().map(|e| e.to_str()) else {
+    let Some(Some(ext)) = path.extension().map(std::ffi::OsStr::to_str) else {
         tracing::warn!("file '{}' does not contain a valid filetype", path.to_string_lossy());
         return false;
     };

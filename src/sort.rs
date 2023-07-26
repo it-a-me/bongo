@@ -54,11 +54,9 @@ fn sort_path(file: &TaggedFile, path: &Path) -> Vec<String> {
     };
     if let Some(album) = tags.album() {
         vec![artist, album.to_string(), filename]
+    } else if tags.artist().is_some() {
+        vec![artist, String::from("Singles"), filename]
     } else {
-        if tags.artist().is_some() {
-            vec![artist, String::from("Singles"), filename]
-        } else {
-            vec![artist, filename]
-        }
+        vec![artist, filename]
     }
 }
