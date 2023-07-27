@@ -30,8 +30,12 @@ impl Song {
         Ok(Self { tagged, uuid, path })
     }
     fn clean_tags(&mut self) -> Result<()> {
-        self.tags_mut()?.remove_empty();
-        self.tagged.save_to_path(&self.path)?;
+        let tags = self.tags_mut()?;
+        let pre_clean = tags.item_count();
+        tags.remove_empty();
+        if tags.item_count() < pre_clean {
+            self.tagged.save_to_path(&self.path)?;
+        }
         Ok(())
     }
 
