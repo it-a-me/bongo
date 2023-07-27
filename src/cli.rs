@@ -9,6 +9,7 @@ pub struct Cli {
     ///disable browser auth for spotify
     pub no_browser: bool,
     ///music directory [default: ./ ]
+    #[arg(short, long)]
     pub directory: Option<PathBuf>,
     #[command(subcommand)]
     pub command: Command,
