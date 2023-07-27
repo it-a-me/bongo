@@ -5,13 +5,12 @@
     clippy::pedantic,
     clippy::style
 )]
-#![allow(dead_code)]
-mod backend;
+// mod backend;
 mod db;
-mod edit;
-mod list;
+// mod edit;
+// mod list;
 mod song;
-mod sort;
+// mod sort;
 
 use std::collections::HashMap;
 
@@ -65,7 +64,7 @@ fn main() -> anyhow::Result<()> {
             print!("{}", toml::to_string_pretty(&show_map)?);
         },
         cli::Command::DumpDb => song::MusicDir::dumpdb(music_dir)?,
-        cli::Command::Edit { song, editor } => edit::edit(song, editor)?,
+        cli::Command::Edit { .. } => todo!(),
     };
     Ok(())
 }

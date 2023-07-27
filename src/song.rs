@@ -29,6 +29,11 @@ impl Song {
         };
         Ok(Self { tagged, uuid, path })
     }
+    fn clean_tags(&mut self) -> Result<()> {
+        self.tags_mut()?.remove_empty();
+        self.tagged.save_to_path(&self.path)?;
+        Ok(())
+    }
 
     fn write_uuid(&mut self, force: bool) -> Result<(), Error> {
         if self.uuid.is_some() && !force {
@@ -139,6 +144,9 @@ impl MusicDir {
         }
         self.append_songs()?;
         self.clean_old_uuid()?;
+        for song in self.songs.iter_mut() {
+            song.clean_tags()?;
+        }
         Ok(())
     }
     fn append_songs(&mut self) -> anyhow::Result<()> {
