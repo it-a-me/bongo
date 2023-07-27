@@ -191,11 +191,11 @@ trait GetTags {
 }
 impl GetTags for TaggedFile {
     fn get_tag(&self, path: &Path) -> Result<&Tag, Error> {
-        self.tag(self.primary_tag_type())
+        self.primary_tag()
             .ok_or_else(|| OpenError::UntaggedFile.at(path.to_path_buf()))
     }
     fn get_tag_mut(&mut self, path: &Path) -> Result<&mut Tag, Error> {
-        self.tag_mut(self.primary_tag_type())
+        self.primary_tag_mut()
             .ok_or_else(|| OpenError::UntaggedFile.at(path.to_path_buf()))
     }
 }
