@@ -1,9 +1,23 @@
 use std::path::{Path, PathBuf};
+pub const DBNAME: &str = ".bongo.db";
 
 use anyhow::Result;
 use redb::{TableDefinition, TypeName};
 
 pub const SONGTABLE: TableDefinition<SongUuid, DbEntry> = TableDefinition::new("song_table");
+pub fn find_db(mut current_dir: PathBuf) -> Option<PathBuf> {
+    current_dir.push("");
+    let mut db_path;
+    while let Some(parent) = current_dir.parent() {
+        db_path = current_dir.join(DBNAME);
+        if db_path.exists() {
+            return Some(db_path);
+        } else {
+            current_dir = parent.to_path_buf();
+        }
+    }
+    None
+}
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct RelativePath(pub Vec<String>);
 impl RelativePath {
@@ -78,7 +92,9 @@ impl redb::RedbValue for DbEntry {
         TypeName::new("song_entry")
     }
 }
-#[derive(derive_more::From, derive_more::Display, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(
+    derive_more::From, derive_more::Display, Debug, serde::Serialize, serde::Deserialize, PartialEq,
+)]
 pub struct SongUuid(pub uuid::Uuid);
 impl redb::RedbKey for SongUuid {
     fn compare(data1: &[u8], data2: &[u8]) -> std::cmp::Ordering {

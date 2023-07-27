@@ -21,11 +21,16 @@ pub enum Command {
         ///copy music files to dir rather than move files
         destination_directory: Option<PathBuf>,
     },
-    ///update metadata for files
-    Update {
+    ///fetch metadata for files
+    Fetch {
         #[arg(short, long)]
         ///metadata source
         backend: Backend,
+    },
+    ///update metadata for files
+    Update {
+        // #[arg(short, long)]
+        // regen_uuid: bool,
     },
     ///create a bongo.db in the music dir
     Init {
