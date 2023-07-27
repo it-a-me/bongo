@@ -70,7 +70,7 @@ impl Song {
             old_path: relative_path,
         })
     }
-    pub fn into_map(&self) -> Result<HashMap<String, String>, anyhow::Error> {
+    pub fn to_map(&self) -> Result<HashMap<String, String>, anyhow::Error> {
         let tags = self.tagged.get_tag(&self.path)?;
         Ok(tags
             .items()
@@ -144,7 +144,7 @@ impl MusicDir {
         }
         self.append_songs()?;
         self.clean_old_uuid()?;
-        for song in self.songs.iter_mut() {
+        for song in &mut self.songs {
             song.clean_tags()?;
         }
         Ok(())
@@ -208,15 +208,15 @@ impl MusicDir {
         writer.commit()?;
         Ok(())
     }
-    pub fn open(dir: PathBuf) -> Result<Self> {
-        let Some(db_path )= crate::db::find_db(dir.to_owned()) else {
+    pub fn open(dir: &Path) -> Result<Self> {
+        let Some(db_path )= crate::db::find_db(dir.to_path_buf()) else {
             anyhow::bail!("unable to locate a {DBNAME}");
         };
         let db_root = db_path
             .parent()
             .expect("db is both a file and a directory?");
         let db = redb::Database::open(&db_path)?;
-        let songs = Self::find_songs(&db_root)?;
+        let songs = Self::find_songs(db_root)?;
         let playlists = Self::find_playlists(db_root)?;
         Ok(Self {
             songs,
@@ -230,7 +230,7 @@ impl MusicDir {
             println!("{}", song.path.to_string_lossy());
         }
     }
-    pub fn dumpdb(root: PathBuf) -> Result<()> {
+    pub fn dumpdb(root: &Path) -> Result<()> {
         let db = redb::Database::open(root.join(DBNAME))?;
         let reader = db.begin_read()?;
         let tbl = reader.open_table(SONGTABLE)?;

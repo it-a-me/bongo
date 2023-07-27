@@ -12,9 +12,8 @@ pub fn find_db(mut current_dir: PathBuf) -> Option<PathBuf> {
         db_path = current_dir.join(DBNAME);
         if db_path.exists() {
             return Some(db_path);
-        } else {
-            current_dir = parent.to_path_buf();
         }
+        current_dir = parent.to_path_buf();
     }
     None
 }
@@ -41,7 +40,7 @@ impl RelativePath {
                 .ok_or(anyhow::anyhow!("invalid utf8 path"))
         }) {
             let dir = dir?;
-            if &path.remove(0) != &dir {
+            if path.remove(0) != dir {
                 anyhow::bail!("{not_descendent_err}");
             }
         }

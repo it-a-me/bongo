@@ -5,6 +5,7 @@
     clippy::pedantic,
     clippy::style
 )]
+#![allow(clippy::module_name_repetitions)]
 // mod backend;
 mod db;
 // mod edit;
@@ -42,11 +43,11 @@ fn main() -> anyhow::Result<()> {
         } => todo!(),
         cli::Command::Fetch { backend: _ } => todo!(),
         cli::Command::Update{/* regen_uuid*/} => {
-            let mut music_dir= song::MusicDir::open(music_dir)?;
+            let mut music_dir= song::MusicDir::open(&music_dir)?;
             music_dir.update(true)?;
         
         },
-        cli::Command::List { /*sub_directory: _*/ } => song::MusicDir::open(music_dir)?.list(),
+        cli::Command::List { /*sub_directory: _*/ } => song::MusicDir::open(&music_dir)?.list(),
         cli::Command::Init { force_reinit } => {
             song::MusicDir::init(music_dir, force_reinit)?;
         }
@@ -54,7 +55,7 @@ fn main() -> anyhow::Result<()> {
             let mut show_map = HashMap::with_capacity(songs.len());
             for path in songs 
             {
-                match song::Song::parse(path.to_owned()).map(|s| s.into_map()){
+                match song::Song::parse(path.clone()).map(|s| s.to_map()){
                     Ok(Ok(map)) => {show_map.insert(path.to_string_lossy().into_owned(), map);},
                     Ok(Err(e)) => tracing::error!("{e}"),
                     Err(e) => tracing::error!("{e}"),                   
@@ -63,7 +64,7 @@ fn main() -> anyhow::Result<()> {
             }
             print!("{}", toml::to_string_pretty(&show_map)?);
         },
-        cli::Command::DumpDb => song::MusicDir::dumpdb(music_dir)?,
+        cli::Command::DumpDb => song::MusicDir::dumpdb(&music_dir)?,
         cli::Command::Edit { .. } => todo!(),
     };
     Ok(())
