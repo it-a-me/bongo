@@ -40,12 +40,12 @@ impl Song {
             let tags = self.tags_mut()?;
             tags.re_map(lofty::TagType::Id3v2);
             if !tags.insert_text(lofty::ItemKey::CatalogNumber, uuid.to_string()) {
-                return Err(OpenError::WriteTag.at(self.path.to_owned()));
+                return Err(OpenError::WriteTag.at(self.path.clone()));
             }
         }
         self.tagged
-            .save_to_path(self.path.to_owned())
-            .map_err(|e| OpenError::Save(e).at(self.path.to_owned()))?;
+            .save_to_path(&self.path)
+            .map_err(|e| OpenError::Save(e).at(self.path.clone()))?;
         self.uuid = Some(uuid.into());
         Ok(())
     }
@@ -53,12 +53,12 @@ impl Song {
     fn tags(&self) -> Result<&Tag, Error> {
         self.tagged
             .primary_tag()
-            .ok_or(OpenError::UntaggedFile.at(self.path.to_owned()))
+            .ok_or(OpenError::UntaggedFile.at(self.path.clone()))
     }
     fn tags_mut(&mut self) -> Result<&mut Tag, Error> {
         self.tagged
             .primary_tag_mut()
-            .ok_or(OpenError::UntaggedFile.at(self.path.to_owned()))
+            .ok_or(OpenError::UntaggedFile.at(self.path.clone()))
     }
     fn to_db_entry(&self, root: &Path) -> anyhow::Result<DbEntry> {
         let relative_path = RelativePath::new(&self.path, root)?;
