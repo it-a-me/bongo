@@ -9,11 +9,11 @@ strip = true
 
 [dependencies]
 anyhow = "1.0.72"
-bincode = "1.3.3"
 clap = { version = "4.3.19", features = ["derive"] }
 derive_more = "0.99.17"
 dialoguer = "0.10.4"
 lofty = "0.15.0"
+postcard = { version = "1.0.6", features = ["alloc"] }
 redb = "1.0.5"
 rspotify = { version = "0.11.7", optional = true, default-features = false, features = [
   "ureq-rustls-tls",

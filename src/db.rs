@@ -78,14 +78,14 @@ impl redb::RedbValue for DbEntry {
     where
         Self: 'a,
     {
-        bincode::deserialize(data).unwrap()
+        postcard::from_bytes(data).unwrap()
     }
     fn as_bytes<'a, 'b: 'a>(value: &'a Self::SelfType<'b>) -> Self::AsBytes<'a>
     where
         Self: 'a,
         Self: 'b,
     {
-        bincode::serialize(value).unwrap()
+        postcard::to_allocvec(value).unwrap()
     }
     fn type_name() -> TypeName {
         TypeName::new("song_entry")
@@ -110,14 +110,14 @@ impl redb::RedbValue for SongUuid {
     where
         Self: 'a,
     {
-        bincode::deserialize(data).unwrap()
+        postcard::from_bytes(data).unwrap()
     }
     fn as_bytes<'a, 'b: 'a>(value: &'a Self::SelfType<'b>) -> Self::AsBytes<'a>
     where
         Self: 'a,
         Self: 'b,
     {
-        bincode::serialize(value).unwrap()
+        postcard::to_allocvec(value).unwrap()
     }
     fn type_name() -> redb::TypeName {
         TypeName::new("song_uuid")
