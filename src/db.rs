@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use redb::{TableDefinition, TypeName};
 
-
 pub const SONGTABLE: TableDefinition<SongUuid, DbEntry> = TableDefinition::new("song_table");
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct RelativePath(pub Vec<String>);
@@ -51,6 +50,7 @@ impl std::fmt::Display for RelativePath {
         write!(f, "{paths}")
     }
 }
+
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct DbEntry {
     pub old_path: RelativePath,
@@ -78,7 +78,7 @@ impl redb::RedbValue for DbEntry {
         TypeName::new("song_entry")
     }
 }
-#[derive(derive_more::From, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(derive_more::From, derive_more::Display, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SongUuid(pub uuid::Uuid);
 impl redb::RedbKey for SongUuid {
     fn compare(data1: &[u8], data2: &[u8]) -> std::cmp::Ordering {

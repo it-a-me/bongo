@@ -1,6 +1,6 @@
 use anyhow::Result;
+use lofty::TaggedFileExt;
 use lofty::{Accessor, TaggedFile};
-use lofty::{TaggedFileExt};
 
 pub fn update(songs: Vec<TaggedFile>) -> Result<()> {
     for song in songs {

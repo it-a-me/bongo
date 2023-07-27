@@ -39,9 +39,9 @@ pub enum Command {
 
     ///list tagged files in a directory
     List {
-        #[arg(short, long)]
-        ///music dir [default:current-dir]
-        sub_directory: Option<PathBuf>,
+        // #[arg(short, long)]
+        // ///music dir [default:current-dir]
+        // sub_directory: Option<PathBuf>,
     },
     ///edit the metadata of a song
     Edit {
@@ -50,6 +50,10 @@ pub enum Command {
         ///override the editor
         #[arg(short, long)]
         editor: Option<String>,
+    },
+    Show {
+        ///path to the songs to edit
+        songs: Vec<PathBuf>,
     },
 }
 

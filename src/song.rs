@@ -1,13 +1,17 @@
 use crate::db::{DbEntry, RelativePath, SongUuid, SONGTABLE};
 use anyhow::Result;
-use lofty::{Tag, TaggedFile, TaggedFileExt};
-use redb::{ReadableTable};
-use std::path::{Path, PathBuf};
+use lofty::{AudioFile, Tag, TaggedFile, TaggedFileExt};
+use redb::ReadableTable;
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 use uuid::Uuid;
 
 pub struct Song {
     tagged: TaggedFile,
-    uuid: SongUuid,
+    uuid: Option<SongUuid>,
     path: PathBuf,
 }
 
@@ -16,46 +20,63 @@ impl Song {
         let mut tagged =
             lofty::read_from_path(&path).map_err(|e| OpenError::from(e).at(path.clone()))?;
         let tags = tagged.get_tag_mut(&path)?;
-        let uuid_field = tags.get_string(&lofty::ItemKey::CatalogNumber);
-        let uuid = if let Some(uuid) = uuid_field {
-            match uuid::Uuid::parse_str(uuid).map_err(|e| OpenError::from(e).at(path.clone()))
-            {
-                Ok(uuid) => Ok(uuid),
-                Err(e) => {
-                    if !write_uuid {
-                        Err(e)
-                    } else {
-                        try_write_uuid(&path, tags, write_uuid)
-                    }
-                }
-            }
-        } else {
-            try_write_uuid(&path, tags, write_uuid)
-        }?;
-        fn try_write_uuid(path: &Path, tags: &mut Tag, write_uuid: bool) -> Result<Uuid, Error> {
-            if !write_uuid {
-                return Err(OpenError::MissingUuid.at(path.to_path_buf()));
-            }
-            let uuid = Uuid::new_v4();
-            tracing::trace!("assigning uuid '{}', to '{}'", uuid, path.to_string_lossy());
-            if tags.insert_text(lofty::ItemKey::CatalogNumber, uuid.to_string()) {
-                Ok(uuid)
-            } else {
-                Err(OpenError::Write.at(path.to_path_buf()))
+        let uuid = match tags
+            .get_string(&lofty::ItemKey::CatalogNumber)
+            .map(Uuid::from_str)
+        {
+            Some(Ok(uuid)) => Some(uuid.into()),
+            _ => None,
+        };
+        let mut self_ = Self { tagged, uuid, path };
+        if write_uuid && self_.uuid.is_none() {
+            self_.write_uuid()?;
+        }
+        Ok(self_)
+    }
+
+    fn write_uuid(&mut self) -> Result<(), Error> {
+        let uuid = Uuid::new_v4();
+        {
+            let tags = self.tags_mut()?;
+            tags.re_map(lofty::TagType::Id3v2);
+            if !tags.insert_text(lofty::ItemKey::CatalogNumber, uuid.to_string()) {
+                return Err(OpenError::WriteTag.at(self.path.to_owned()));
             }
         }
-
-        Ok(Self {
-            tagged,
-            uuid: SongUuid::from(uuid),
-            path,
-        })
+        self.tagged
+            .save_to_path(self.path.to_owned())
+            .map_err(|e| OpenError::Save(e).at(self.path.to_owned()))?;
+        self.uuid = Some(uuid.into());
+        Ok(())
+    }
+    #[allow(dead_code)]
+    fn tags(&self) -> Result<&Tag, Error> {
+        self.tagged
+            .primary_tag()
+            .ok_or(OpenError::UntaggedFile.at(self.path.to_owned()))
+    }
+    fn tags_mut(&mut self) -> Result<&mut Tag, Error> {
+        self.tagged
+            .primary_tag_mut()
+            .ok_or(OpenError::UntaggedFile.at(self.path.to_owned()))
     }
     fn to_db_entry(&self, root: &Path) -> anyhow::Result<DbEntry> {
         let relative_path = RelativePath::new(&self.path, root)?;
         Ok(DbEntry {
             old_path: relative_path,
         })
+    }
+    pub fn to_string_pretty(&self) -> Result<String, Error> {
+        let tags = self.tagged.get_tag(&self.path)?;
+
+        Ok(tags
+            .items()
+            .filter_map(|i| {
+                i.value()
+                    .text()
+                    .map(|s| format!("{:?} => '{s}'\n", i.key()))
+            })
+            .collect())
     }
 }
 
@@ -64,9 +85,9 @@ pub enum OpenError {
     #[error("error parsing file {0}")]
     Parse(#[from] lofty::LoftyError),
     #[error("error writing tags to file")]
-    Write,
-    #[error("missing uuid")]
-    MissingUuid,
+    WriteTag,
+    #[error("error writing tags to file {0}")]
+    Save(lofty::LoftyError),
     #[error("Invalid uuid '{0}'")]
     InvalidUuid(#[from] uuid::Error),
     #[error("untagged file")]
@@ -104,8 +125,15 @@ impl MusicDir {
             }
             let mut song_tbl = writer.open_table(SONGTABLE)?;
             for song in &songs {
-                if song_tbl.get(&song.uuid)?.is_none() {
-                    song_tbl.insert(&song.uuid, song.to_db_entry(&root)?)?;
+                if let Some(uuid) = &song.uuid {
+                    if song_tbl.get(uuid)?.is_none() {
+                        song_tbl.insert(uuid, song.to_db_entry(&root)?)?;
+                    }
+                } else {
+                    tracing::warn!(
+                        "'{}' does not have a uuid.  Unable to save it to .bongo.db",
+                        song.path.to_string_lossy()
+                    );
                 }
             }
         }
@@ -122,10 +150,11 @@ impl MusicDir {
         let db = redb::Database::open(root.join(".bongo.db"))?;
         let reader = db.begin_read()?;
         let tbl = reader.open_table(SONGTABLE)?;
-        for entry in tbl.iter()? {
-            let entry = entry?.1.value();
-            println!("{entry:?}");
-        }
+        let db_map = tbl
+            .iter()?
+            .map(|e| e.map(|(k, v)| (k.value().0, v.value())))
+            .collect::<Result<HashMap<_, _>, _>>()?;
+        println!("{}", toml::to_string_pretty(&db_map)?);
         Ok(())
     }
     fn find_songs(root: &Path, write_uuid: bool) -> Result<Vec<Song>> {

@@ -39,10 +39,20 @@ fn main() -> anyhow::Result<()> {
             destination_directory: _,
         } => todo!(),
         cli::Command::Update { backend: _ } => todo!(),
-        cli::Command::List { sub_directory: _ } => todo!(),
+        cli::Command::List { /*sub_directory: _*/ } => todo!(),
         cli::Command::Init { force_reinit } => {
             song::MusicDir::init(music_dir, force_reinit)?;
         }
+        cli::Command::Show { songs }=> {
+            for path in songs 
+            {
+                match song::Song::parse(path, false).map(|s| s.to_string_pretty()){
+                    Ok(Ok(v)) => println!("{v}"),
+                    Err(e) | Ok(Err(e)) => tracing::error!("{e}"),
+                }
+                           
+            }
+        },
         cli::Command::DumpDb => song::MusicDir::dumpdb(music_dir)?,
         cli::Command::Edit { song, editor } => edit::edit(song, editor)?,
     };
