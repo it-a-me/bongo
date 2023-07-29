@@ -43,12 +43,12 @@ impl MusicDir {
         } else {
             for (dest, source) in self.song_paths()? {
                 let dest = dest.rebase(self.root.clone());
-                tracing::info!(
-                    "moving '{}' to '{}'",
-                    source.to_string_lossy(),
-                    dest.to_string_lossy()
-                );
                 if &dest != source {
+                    tracing::info!(
+                        "moving '{}' to '{}'",
+                        source.to_string_lossy(),
+                        dest.to_string_lossy()
+                    );
                     std::fs::create_dir_all(dest.parent().unwrap())?;
                     std::fs::copy(source, dest)?;
                     std::fs::remove_file(source)?;
@@ -77,13 +77,9 @@ impl MusicDir {
                     .to_string_lossy()
             };
             title.to_mut().push('.');
-            title.to_mut().push_str(
-                &song
-                    .path
-                    .extension()
-                    .unwrap()
-                    .to_string_lossy(),
-            );
+            title
+                .to_mut()
+                .push_str(&song.path.extension().unwrap().to_string_lossy());
             let album = tags.album().unwrap_or("Singles".into());
             let artist = tags.artist().unwrap_or("UnknownArtist".into());
             let relative_path = RelativePath::from(
@@ -92,7 +88,6 @@ impl MusicDir {
                     .into_iter()
                     .collect::<Vec<_>>(),
             );
-            println!("{relative_path:?}");
             paths.push((relative_path, &song.path));
         }
         Ok(paths)
