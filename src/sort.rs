@@ -1,62 +1,100 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use lofty::{Accessor, TaggedFile, TaggedFileExt};
+use lofty::Accessor;
 
-pub fn sort(songs: Vec<(TaggedFile, PathBuf)>, dest_dir: &Path, copy: bool) -> anyhow::Result<()> {
-    for (tags, source) in songs {
-        let mut dest = dest_dir.to_path_buf();
-        for dir in sort_path(&tags, &source) {
-            dest.push(dir)
-        }
-        std::fs::create_dir_all(dest.parent().unwrap())?;
-        if source != dest {
-            match copy {
-                true => {
-                    tracing::info!(
-                        "copying file from '{}' to '{}'",
-                        source.to_string_lossy(),
-                        dest.to_string_lossy()
-                    );
-                    std::fs::copy(source, dest)?;
+use crate::{
+    db::RelativePath,
+    song::{GetTags, MusicDir},
+};
+
+impl MusicDir {
+    pub fn sort(
+        &mut self,
+        destination_dir: Option<PathBuf>,
+        ignore_db: bool,
+        auto_init: bool,
+    ) -> anyhow::Result<()> {
+        if let Some(destination_dir) = destination_dir {
+            if self.root == destination_dir {
+                anyhow::bail!("source and destination directories are the same");
+            }
+            if !destination_dir.exists() {
+                std::fs::create_dir(&destination_dir)?;
+            }
+            if !destination_dir.is_dir() {
+                anyhow::bail!("destination is not a directory");
+            }
+            for (dest, source) in self.song_paths()? {
+                let dest = dest.rebase(destination_dir.clone());
+                tracing::info!(
+                    "copying '{}' to '{}'",
+                    source.to_string_lossy(),
+                    dest.to_string_lossy()
+                );
+                if &dest == source {
+                    anyhow::bail!("unable to copy to self");
                 }
-                false => {
-                    tracing::info!(
-                        "moving file from '{}' to '{}'",
-                        source.to_string_lossy(),
-                        dest.to_string_lossy()
-                    );
-                    std::fs::copy(&source, dest)?;
+                std::fs::create_dir_all(dest.parent().unwrap())?;
+                std::fs::copy(source, dest)?;
+            }
+            if auto_init {
+                Self::init(destination_dir, false)?;
+            }
+        } else {
+            for (dest, source) in self.song_paths()? {
+                let dest = dest.rebase(self.root.clone());
+                tracing::info!(
+                    "moving '{}' to '{}'",
+                    source.to_string_lossy(),
+                    dest.to_string_lossy()
+                );
+                if &dest != source {
+                    std::fs::create_dir_all(dest.parent().unwrap())?;
+                    std::fs::copy(source, dest)?;
                     std::fs::remove_file(source)?;
                 }
             }
+            if !ignore_db {
+                self.update(false)?;
+            }
         }
+        Ok(())
     }
-    Ok(())
-}
 
-fn sort_path(file: &TaggedFile, path: &Path) -> Vec<String> {
-    let Some(tags )= file.tag(file.primary_tag_type()) else {
-        return Vec::new();
-    };
-    let Some(filename)= tags.title().map(|title| {
-        format!(
-            "{title}.{}",
-            path.extension()
-                .expect("song does not have an extention")
-                .to_string_lossy()
-        )
-    }) else {
-        return Vec::new();
-    };
-    let artist = match tags.artist() {
-        Some(artist) => artist.to_string(),
-        None => String::from("Unknown Artist"),
-    };
-    if let Some(album) = tags.album() {
-        vec![artist, album.to_string(), filename]
-    } else if tags.artist().is_some() {
-        vec![artist, String::from("Singles"), filename]
-    } else {
-        vec![artist, filename]
+    fn song_paths(&self) -> anyhow::Result<Vec<(RelativePath, &PathBuf)>> {
+        let mut paths = Vec::with_capacity(self.songs.len());
+        for song in &self.songs {
+            let tags = song.tagged.get_tag(&song.path)?;
+            let mut title = if let Some(title) = tags.title() {
+                title
+            } else {
+                song.path
+                    .file_name()
+                    .ok_or(anyhow::anyhow!(
+                        "'{}' is not a file",
+                        song.path.to_string_lossy()
+                    ))?
+                    .to_string_lossy()
+            };
+            title.to_mut().push('.');
+            title.to_mut().push_str(
+                &song
+                    .path
+                    .extension()
+                    .unwrap()
+                    .to_string_lossy(),
+            );
+            let album = tags.album().unwrap_or("Singles".into());
+            let artist = tags.artist().unwrap_or("UnknownArtist".into());
+            let relative_path = RelativePath::from(
+                [artist, album, title]
+                    .map(|s| s.to_string())
+                    .into_iter()
+                    .collect::<Vec<_>>(),
+            );
+            println!("{relative_path:?}");
+            paths.push((relative_path, &song.path));
+        }
+        Ok(paths)
     }
 }

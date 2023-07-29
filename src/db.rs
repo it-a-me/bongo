@@ -17,7 +17,8 @@ pub fn find_db(mut current_dir: PathBuf) -> Option<PathBuf> {
     }
     None
 }
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, derive_more::From)]
+#[repr(transparent)]
 pub struct RelativePath(pub Vec<String>);
 impl RelativePath {
     pub fn new(path: &Path, root: &Path) -> Result<Self> {

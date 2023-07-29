@@ -6,12 +6,9 @@
     clippy::style
 )]
 #![allow(clippy::module_name_repetitions)]
-// mod backend;
 mod db;
-// mod edit;
-// mod list;
 mod song;
-// mod sort;
+mod sort;
 
 use std::collections::HashMap;
 
@@ -39,8 +36,15 @@ fn main() -> anyhow::Result<()> {
     };
     match args.command {
         cli::Command::Sort {
-            destination_directory: _,
-        } => todo!(),
+            destination_directory,
+            ignore_db,
+            auto_init
+        } => {
+            if ignore_db && auto_init {
+                anyhow::bail!("unable to both ignore and create a db");
+            }
+            song::MusicDir::open(&music_dir)?.sort(destination_directory, ignore_db, auto_init)?;
+        },
         cli::Command::Fetch { backend: _ } => todo!(),
         cli::Command::Update{/* regen_uuid*/} => {
             let mut music_dir= song::MusicDir::open(&music_dir)?;

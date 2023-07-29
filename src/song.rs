@@ -10,8 +10,8 @@ use std::{
 use uuid::Uuid;
 
 pub struct Song {
-    tagged: TaggedFile,
-    uuid: Option<SongUuid>,
+    pub(crate) tagged: TaggedFile,
+    pub(crate) uuid: Option<SongUuid>,
     pub path: PathBuf,
 }
 
@@ -114,10 +114,10 @@ pub struct Error {
 }
 
 pub struct MusicDir {
-    songs: Vec<Song>,
-    playlists: Vec<PathBuf>,
-    root: PathBuf,
-    db: redb::Database,
+    pub(crate) songs: Vec<Song>,
+    pub(crate) playlists: Vec<PathBuf>,
+    pub(crate) root: PathBuf,
+    pub(crate) db: redb::Database,
 }
 
 impl MusicDir {
@@ -273,7 +273,7 @@ impl MusicDir {
     }
 }
 
-trait GetTags {
+pub trait GetTags {
     fn get_tag(&self, path: &Path) -> Result<&Tag, Error>;
     fn get_tag_mut(&mut self, path: &Path) -> Result<&mut Tag, Error>;
 }

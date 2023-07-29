@@ -21,6 +21,12 @@ pub enum Command {
         #[arg(short, long)]
         ///copy music files to dir rather than move files
         destination_directory: Option<PathBuf>,
+        #[arg(short, long)]
+        ///don't update the bongo db
+        ignore_db: bool,
+        #[arg(short, long)]
+        ///create a bongo db if it doesn't exist
+        auto_init: bool,
     },
     ///fetch metadata for files
     Fetch {
