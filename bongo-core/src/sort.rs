@@ -1,11 +1,9 @@
 use std::path::PathBuf;
 
 use lofty::Accessor;
+use relative_path::RelativePath;
 
-use crate::{
-    db::RelativePath,
-    song::{GetTags, MusicDir},
-};
+use crate::song::{GetTags, MusicDir};
 
 impl MusicDir {
     pub fn sort(
@@ -86,7 +84,7 @@ impl MusicDir {
                 [artist, album, title]
                     .map(|s| s.to_string())
                     .into_iter()
-                    .collect::<Vec<_>>(),
+                    .collect::<RelativePath>(),
             );
             paths.push((relative_path, &song.path));
         }

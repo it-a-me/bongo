@@ -1,0 +1,30 @@
+[package]
+name = "bongo_core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.72"
+clap = { version = "4.3.19", features = ["derive"], optional = true}
+derive_more = "0.99.17"
+lofty = { version = "0.15.0", path = "../lofty-rs-serde" }
+postcard = { version = "1.0.6", features = ["alloc"] }
+redb = "1.0.5"
+relative-path = { version = "0.1.0", path = "../relative-path", features = ["serde"] }
+rspotify = { version = "0.11.7", optional = true, default-features = false, features = [
+  "ureq-rustls-tls",
+  "cli",
+  "webbrowser",
+  "dotenv",
+  "client-ureq",
+] }
+serde = { version = "1.0.175", features = ["derive"] }
+thiserror = "1.0.44"
+tracing = "0.1.37"
+uuid = { version = "1.4.1", features = ["v4", "serde"] }
+walkdir = "2.3.3"
+
+[features]
+default = ["backend-spotify"]
+backend-spotify = ["dep:rspotify"]
+clap = ["dep:clap"]

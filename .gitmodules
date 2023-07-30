@@ -1,0 +1,3 @@
+[submodule "lofty-rs-serde"]
+	path = lofty-rs-serde
+	url = ./lofty-rs-serde/

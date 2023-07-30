@@ -1,7 +1,8 @@
-use crate::db::{DbEntry, RelativePath, SongUuid, DBNAME, SONGTABLE};
+use crate::db::{Database, DbEntry, SongUuid, SONGTABLE};
 use anyhow::Result;
 use lofty::{AudioFile, Tag, TaggedFile, TaggedFileExt};
 use redb::ReadableTable;
+use relative_path::RelativePath;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -69,7 +70,7 @@ impl Song {
             .ok_or(OpenError::UntaggedFile.at(self.path.clone()))
     }
     fn to_db_entry(&self, root: &Path) -> anyhow::Result<DbEntry> {
-        let relative_path = RelativePath::new(&self.path, root)?;
+        let relative_path = RelativePath::new(root, &self.path)?;
         Ok(DbEntry {
             old_path: relative_path,
         })
@@ -117,15 +118,15 @@ pub struct MusicDir {
     pub(crate) songs: Vec<Song>,
     pub(crate) playlists: Vec<PathBuf>,
     pub(crate) root: PathBuf,
-    pub(crate) db: redb::Database,
+    pub(crate) db: Database,
 }
 
 impl MusicDir {
     pub fn init(root: PathBuf, force: bool) -> Result<Self> {
-        let db = redb::Database::create(root.join(DBNAME))?;
+        let db = Database::init(&root, force)?;
         let songs = Self::find_songs(&root)?;
         let playlists = Self::find_playlists(&root)?;
-        let writer = db.begin_write()?;
+        let writer = db.0.begin_write()?;
         {
             if force {
                 writer.delete_table(SONGTABLE)?;
@@ -154,7 +155,7 @@ impl MusicDir {
         Ok(())
     }
     fn append_songs(&mut self) -> anyhow::Result<()> {
-        let writer = self.db.begin_write()?;
+        let writer = self.db.0.begin_write()?;
         {
             let mut song_tbl = writer.open_table(SONGTABLE)?;
             for song in &self.songs {
@@ -182,7 +183,7 @@ impl MusicDir {
         Ok(())
     }
     fn clean_old_uuid(&mut self) -> anyhow::Result<()> {
-        let writer = self.db.begin_write()?;
+        let writer = self.db.0.begin_write()?;
         {
             let mut song_tbl = writer.open_table(SONGTABLE)?;
             let table_uuids = song_tbl
@@ -213,13 +214,8 @@ impl MusicDir {
         Ok(())
     }
     pub fn open(dir: &Path) -> Result<Self> {
-        let Some(db_path )= crate::db::find_db(dir.to_path_buf()) else {
-            anyhow::bail!("unable to locate a {DBNAME}");
-        };
-        let db_root = db_path
-            .parent()
-            .expect("db is both a file and a directory?");
-        let db = redb::Database::open(&db_path)?;
+        let db = Database::open(dir)?;
+        let db_root = db.1.parent().expect("db is both a file and a directory?");
         let songs = Self::find_songs(db_root)?;
         let playlists = Self::find_playlists(db_root)?;
         Ok(Self {
@@ -233,17 +229,6 @@ impl MusicDir {
         for song in &self.songs {
             println!("{}", song.path.to_string_lossy());
         }
-    }
-    pub fn dumpdb(root: &Path) -> Result<()> {
-        let db = redb::Database::open(root.join(DBNAME))?;
-        let reader = db.begin_read()?;
-        let tbl = reader.open_table(SONGTABLE)?;
-        let db_map = tbl
-            .iter()?
-            .map(|e| e.map(|(k, v)| (k.value().0, v.value())))
-            .collect::<Result<HashMap<_, _>, _>>()?;
-        println!("{}", toml::to_string_pretty(&db_map)?);
-        Ok(())
     }
     fn find_songs(root: &Path) -> Result<Vec<Song>> {
         walkdir::WalkDir::new(root)

@@ -6,13 +6,11 @@
     clippy::style
 )]
 #![allow(clippy::module_name_repetitions)]
-mod db;
-mod song;
-mod sort;
 
 use std::collections::HashMap;
 
 use anyhow::Result;
+use bongo_core::{song, db::SONGTABLE, rexports::redb::ReadableTable};
 use clap::Parser;
 
 mod cli;
@@ -68,7 +66,25 @@ fn main() -> anyhow::Result<()> {
             }
             print!("{}", toml::to_string_pretty(&show_map)?);
         },
-        cli::Command::DumpDb => song::MusicDir::dumpdb(&music_dir)?,
+        cli::Command::DumpDb => {
+            let db = bongo_core::db::Database::open(&music_dir)?;
+            let reader = db.0.begin_read()?;
+            {
+                let song_tbl = reader.open_table(SONGTABLE)?;
+                for entry in song_tbl.iter()?{
+                    let entry = entry?;
+                    let (u, e) = entry;
+                    (u.value(), e.value());
+
+                }
+                let x = song_tbl.iter()?
+                    .map(
+                        |x| 
+                            x.map_err(Into::into).map(|(u, e)| (u.value().0, e.value()))).collect::<Result<HashMap<_,_>>>()?;
+                println!("{}", toml::to_string_pretty(&x)?);
+
+            }
+        }
         cli::Command::Edit { .. } => todo!(),
     };
     Ok(())
